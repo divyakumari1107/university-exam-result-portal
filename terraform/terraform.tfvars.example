@@ -1,0 +1,8 @@
+aws_region            = "ap-south-1"
+instance_type         = "t2.micro"
+key_name              = "your-aws-keypair-name"
+allowed_ssh_cidr      = "0.0.0.0/0"
+exam_season_active    = true
+nagios_admin_password = "ChangeMe@2026"
+admin_email           = "it-admin@university.edu"
+alert_webhook_url     = ""

@@ -1,0 +1,100 @@
+# Managed by Puppet - Nagios 4 Monitoring & Alerting Config for University Result Portal
+
+define command {
+    command_name    check_nrpe_portal
+    command_line    /usr/lib/nagios/plugins/check_nrpe -H $HOSTADDRESS$ -c $ARG1$
+}
+
+define command {
+    command_name    notify-service-by-webhook
+    command_line    /usr/local/bin/notify_webhook.sh "[Nagios $NOTIFICATIONTYPE$] $HOSTNAME$ / $SERVICEDESC$ is $SERVICESTATE$ - $SERVICEOUTPUT$"
+}
+
+define command {
+    command_name    notify-host-by-webhook
+    command_line    /usr/local/bin/notify_webhook.sh "[Nagios $NOTIFICATIONTYPE$] Host $HOSTNAME$ is $HOSTSTATE$ - $HOSTOUTPUT$"
+}
+
+define contact {
+    contact_name                    university-it-admin
+    alias                           University IT Admin
+    service_notification_period     24x7
+    host_notification_period        24x7
+    service_notification_options    w,u,c,r
+    host_notification_options       d,u,r
+    service_notification_commands   notify-service-by-email,notify-service-by-webhook
+    host_notification_commands      notify-host-by-email,notify-host-by-webhook
+    email                           <%= @admin_email %>
+}
+
+define host {
+    use                     generic-host
+    host_name               university-result-portal
+    alias                   University Student Result Portal
+    address                 <%= @portal_ip %>
+    contacts                university-it-admin
+    max_check_attempts      3
+    check_period            24x7
+    notification_interval   15
+    notification_period     24x7
+}
+
+define service {
+    use                     generic-service
+    host_name               university-result-portal
+    service_description     Portal HTTP Availability
+    contacts                university-it-admin
+    check_command           check_http!-u /health.html -e 200
+    check_interval          1
+    retry_interval          1
+}
+
+define service {
+    use                     generic-service
+    host_name               university-result-portal
+    service_description     Portal HTTPS SSL Endpoint
+    contacts                university-it-admin
+    check_command           check_http!-S -p 443 -u /health.html
+    check_interval          2
+    retry_interval          1
+}
+
+define service {
+    use                     generic-service
+    host_name               university-result-portal
+    service_description     Portal RAM Usage
+    contacts                university-it-admin
+    check_command           check_nrpe_portal!check_portal_ram
+    check_interval          1
+    retry_interval          1
+}
+
+define service {
+    use                     generic-service
+    host_name               university-result-portal
+    service_description     Portal Server Load
+    contacts                university-it-admin
+    check_command           check_nrpe_portal!check_portal_load
+    check_interval          1
+    retry_interval          1
+}
+
+define service {
+    use                     generic-service
+    host_name               university-result-portal
+    service_description     Portal Root Disk Usage
+    contacts                university-it-admin
+    check_command           check_nrpe_portal!check_portal_disk
+    check_interval          2
+    retry_interval          1
+}
+
+define service {
+    use                     generic-service
+    host_name               university-result-portal
+    service_description     Nginx Web Process
+    contacts                university-it-admin
+    check_command           check_nrpe_portal!check_portal_nginx
+    check_interval          1
+    retry_interval          1
+}

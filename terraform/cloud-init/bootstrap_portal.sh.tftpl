@@ -1,0 +1,52 @@
+#!/bin/bash
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y
+apt-get install -y puppet
+
+mkdir -p /etc/puppet/code/environments/production/manifests
+mkdir -p /etc/puppet/code/environments/production/modules/portal_web/manifests
+mkdir -p /etc/puppet/code/environments/production/modules/portal_web/templates
+mkdir -p /etc/puppet/code/environments/production/modules/portal_web/files
+
+cat <<'EOF' > /etc/puppet/code/environments/production/manifests/site.pp
+${portal_site_pp}
+EOF
+
+cat <<'EOF' > /etc/puppet/code/environments/production/modules/portal_web/manifests/init.pp
+${portal_init_pp}
+EOF
+
+cat <<'EOF' > /etc/puppet/code/environments/production/modules/portal_web/templates/portal.conf.erb
+${portal_conf_erb}
+EOF
+
+cat <<'EOF' > /etc/puppet/code/environments/production/modules/portal_web/templates/logrotate_nginx.erb
+${logrotate_erb}
+EOF
+
+cat <<'EOF' > /etc/puppet/code/environments/production/modules/portal_web/templates/nrpe_portal.cfg.erb
+${nrpe_cfg_erb}
+EOF
+
+echo "${portal_index_html}" | base64 -d > /etc/puppet/code/environments/production/modules/portal_web/files/index.html
+echo "${portal_health}" | base64 -d > /etc/puppet/code/environments/production/modules/portal_web/files/health.html
+echo "${portal_students_json}" | base64 -d > /etc/puppet/code/environments/production/modules/portal_web/files/students.json
+
+# Set node role fact and apply Puppet configuration
+mkdir -p /etc/facter/facts.d
+cat <<'EOF' > /etc/facter/facts.d/portal_role.yaml
+---
+server_role: portal
+nagios_allowed_subnet: "0.0.0.0/0"
+EOF
+
+puppet apply \
+  --modulepath=/etc/puppet/code/environments/production/modules \
+  /etc/puppet/code/environments/production/manifests/site.pp
+
+# Schedule Puppet every 5 minutes for automatic drift remediation (self-healing)
+cat <<'EOF' > /etc/cron.d/puppet-self-heal
+*/5 * * * * root /usr/bin/puppet apply --modulepath=/etc/puppet/code/environments/production/modules /etc/puppet/code/environments/production/manifests/site.pp >/var/log/puppet-apply.log 2>&1
+EOF

@@ -1,0 +1,41 @@
+{
+  "CS202601": {
+    "name": "Aarav Sharma",
+    "branch": "Computer Science",
+    "semesters": {
+      "Sem-6": {
+        "subjects": [
+          { "name": "Cloud Computing & DevOps", "marks": 91 },
+          { "name": "Distributed Systems", "marks": 86 },
+          { "name": "Computer Networks", "marks": 84 }
+        ]
+      }
+    }
+  },
+  "CS202602": {
+    "name": "Priya Verma",
+    "branch": "Computer Science",
+    "semesters": {
+      "Sem-6": {
+        "subjects": [
+          { "name": "Cloud Computing & DevOps", "marks": 95 },
+          { "name": "Distributed Systems", "marks": 90 },
+          { "name": "Computer Networks", "marks": 89 }
+        ]
+      }
+    }
+  },
+  "EC202610": {
+    "name": "Rohan Mehta",
+    "branch": "Electronics & Comm.",
+    "semesters": {
+      "Sem-6": {
+        "subjects": [
+          { "name": "Embedded Systems", "marks": 79 },
+          { "name": "Digital Signal Processing", "marks": 74 },
+          { "name": "VLSI Design", "marks": 81 }
+        ]
+      }
+    }
+  }
+}

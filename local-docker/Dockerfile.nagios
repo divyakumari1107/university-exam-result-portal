@@ -1,0 +1,25 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update -y && \
+    apt-get install -y puppet iputils-ping && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /etc/puppet/code/environments/production /etc/facter/facts.d
+
+COPY puppet/ /etc/puppet/code/environments/production/
+
+RUN printf -- "---\nserver_role: nagios\nis_container: true\nportal_server_ip: \"portal-server\"\nexam_season_active: true\nnagios_admin_password: \"ExamPortal@2026\"\n" \
+    > /etc/facter/facts.d/portal_role.yaml
+
+RUN puppet apply \
+    --modulepath=/etc/puppet/code/environments/production/modules \
+    /etc/puppet/code/environments/production/manifests/site.pp
+
+RUN printf '#!/bin/bash\nset -e\ncat <<EOF > /etc/facter/facts.d/portal_role.yaml\n---\nserver_role: nagios\nis_container: true\nportal_server_ip: "${PORTAL_HOST:-portal-server}"\nexam_season_active: ${EXAM_SEASON_ACTIVE:-true}\nnagios_admin_password: "${NAGIOS_ADMIN_PASSWORD:-ExamPortal@2026}"\nadmin_email: "${ADMIN_EMAIL:-admin@university.local}"\nalert_webhook_url: "${ALERT_WEBHOOK_URL:-}"\nEOF\npuppet apply --modulepath=/etc/puppet/code/environments/production/modules /etc/puppet/code/environments/production/manifests/site.pp\nservice apache2 stop || true\nexec /usr/sbin/apache2ctl -D FOREGROUND\n' \
+    > /usr/local/bin/start-nagios.sh && chmod +x /usr/local/bin/start-nagios.sh
+
+EXPOSE 80
+
+CMD ["/usr/local/bin/start-nagios.sh"]

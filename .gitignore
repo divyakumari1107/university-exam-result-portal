@@ -1,0 +1,17 @@
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!terraform.tfvars.example
+crash.log
+override.tf
+override.tf.json
+
+# Python
+__pycache__/
+*.pyc
+
+# OS / Editor
+.DS_Store
+Thumbs.db

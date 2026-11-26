@@ -1,0 +1,37 @@
+#!/bin/bash
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y
+apt-get install -y puppet
+
+mkdir -p /etc/puppet/code/environments/production/manifests
+mkdir -p /etc/puppet/code/environments/production/modules/nagios_server/manifests
+mkdir -p /etc/puppet/code/environments/production/modules/nagios_server/templates
+
+cat <<'EOF' > /etc/puppet/code/environments/production/manifests/site.pp
+${nagios_site_pp}
+EOF
+
+cat <<'EOF' > /etc/puppet/code/environments/production/modules/nagios_server/manifests/init.pp
+${nagios_init_pp}
+EOF
+
+cat <<'EOF' > /etc/puppet/code/environments/production/modules/nagios_server/templates/portal_host.cfg.erb
+${nagios_host_cfg_erb}
+EOF
+
+mkdir -p /etc/facter/facts.d
+cat <<EOF > /etc/facter/facts.d/portal_role.yaml
+---
+server_role: nagios
+portal_server_ip: "${portal_private_ip}"
+exam_season_active: ${exam_season_active}
+nagios_admin_password: "${nagios_admin_password}"
+admin_email: "${admin_email}"
+alert_webhook_url: "${alert_webhook_url}"
+EOF
+
+puppet apply \
+  --modulepath=/etc/puppet/code/environments/production/modules \
+  /etc/puppet/code/environments/production/manifests/site.pp

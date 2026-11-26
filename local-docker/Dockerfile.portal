@@ -1,0 +1,31 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update -y && \
+    apt-get install -y puppet cron && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /etc/puppet/code/environments/production/modules/portal_web/files /etc/facter/facts.d
+
+COPY puppet/ /etc/puppet/code/environments/production/
+COPY portal-app/index.html /etc/puppet/code/environments/production/modules/portal_web/files/index.html
+COPY portal-app/health.html /etc/puppet/code/environments/production/modules/portal_web/files/health.html
+COPY portal-app/students.json /etc/puppet/code/environments/production/modules/portal_web/files/students.json
+
+RUN printf -- "---\nserver_role: portal\nis_container: true\nnagios_allowed_subnet: \"0.0.0.0/0\"\n" \
+    > /etc/facter/facts.d/portal_role.yaml
+
+RUN puppet apply \
+    --modulepath=/etc/puppet/code/environments/production/modules \
+    /etc/puppet/code/environments/production/manifests/site.pp
+
+RUN printf "*/5 * * * * root /usr/bin/puppet apply --modulepath=/etc/puppet/code/environments/production/modules /etc/puppet/code/environments/production/manifests/site.pp >/var/log/puppet-apply.log 2>&1\n" \
+    > /etc/cron.d/puppet-self-heal && chmod 0644 /etc/cron.d/puppet-self-heal
+
+RUN printf '#!/bin/bash\nset -e\npuppet apply --modulepath=/etc/puppet/code/environments/production/modules /etc/puppet/code/environments/production/manifests/site.pp\nexec /usr/sbin/cron -f\n' \
+    > /usr/local/bin/start-portal.sh && chmod +x /usr/local/bin/start-portal.sh
+
+EXPOSE 80 443 5666
+
+CMD ["/usr/local/bin/start-portal.sh"]

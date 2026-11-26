@@ -1,0 +1,80 @@
+name: Portal CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate Portal, Terraform & Puppet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate students.json and portal Python helper
+        run: |
+          python3 -m json.tool portal-app/students.json >/dev/null
+          python3 -m py_compile portal-app/server.py
+          test -s portal-app/index.html
+          test -s portal-app/health.html
+
+      - name: Validate ERB templates syntax
+        run: |
+          for tpl in puppet/modules/*/templates/*.erb; do
+            echo "Checking $tpl"
+            erb -P -x -T '-' "$tpl" | ruby -c
+          done
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Terraform format, init, and validate (AWS)
+        working-directory: terraform
+        run: |
+          terraform fmt -check -recursive
+          terraform init -backend=false
+          terraform validate
+
+      - name: Terraform format, init, and validate (Local Docker)
+        working-directory: local-docker
+        run: |
+          terraform fmt -check -recursive
+          terraform init -backend=false
+          terraform validate
+
+  deploy-portal:
+    name: Deploy Updated Portal Files
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy portal-app to Portal VM via SSH
+        env:
+          PORTAL_HOST: ${{ secrets.PORTAL_HOST }}
+          PORTAL_SSH_USER: ${{ secrets.PORTAL_SSH_USER }}
+          PORTAL_SSH_KEY: ${{ secrets.PORTAL_SSH_KEY }}
+        run: |
+          if [ -z "$PORTAL_HOST" ] || [ -z "$PORTAL_SSH_USER" ] || [ -z "$PORTAL_SSH_KEY" ]; then
+            echo "Deployment secrets (PORTAL_HOST, PORTAL_SSH_USER, PORTAL_SSH_KEY) are not configured yet; skipping remote deploy."
+            exit 0
+          fi
+
+          mkdir -p ~/.ssh
+          printf '%s\n' "$PORTAL_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            portal-app/index.html portal-app/students.json portal-app/health.html \
+            "${PORTAL_SSH_USER}@${PORTAL_HOST}:/tmp/"
+
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "${PORTAL_SSH_USER}@${PORTAL_HOST}" \
+            "sudo mv /tmp/index.html /tmp/students.json /tmp/health.html /var/www/result-portal/ && sudo chown www-data:www-data /var/www/result-portal/* && sudo systemctl reload nginx"

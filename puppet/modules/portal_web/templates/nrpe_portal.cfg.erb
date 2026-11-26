@@ -1,0 +1,8 @@
+# Managed by Puppet - NRPE checks for Student Result Portal
+dont_blame_nrpe=0
+allowed_hosts=127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+
+command[check_portal_load]=/usr/lib/nagios/plugins/check_load -r -w 1.5,1.2,1.0 -c 3.0,2.5,2.0
+command[check_portal_disk]=/usr/lib/nagios/plugins/check_disk -w 20% -c 10% -p /
+command[check_portal_ram]=/usr/local/bin/check_ram.sh
+command[check_portal_nginx]=/usr/lib/nagios/plugins/check_procs -c 1:20 -C nginx
